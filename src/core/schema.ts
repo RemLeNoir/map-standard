@@ -18,6 +18,13 @@ export const MapSchema = z.object({
     exclude: z.array(z.string()).default([]),
   }),
 
+  /**
+   * `depth` es un hint de perfil de ejecución, no una garantía de razonamiento.
+   * Los providers/maps lo usan para enrutar (p. ej. tier de modelo, longitud
+   * de salida, presencia de cadenas de pensamiento si el provider las ofrece).
+   * Los modelos no entregan "más profundidad" por poner "high"; lo que cambia
+   * es cómo lo invocas.
+   */
   reasoning: z.object({
     depth: z.enum(["low", "medium", "high"]).default("medium"),
     agenticLoop: z.boolean().default(false),

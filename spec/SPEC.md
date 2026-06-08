@@ -11,8 +11,12 @@ El formato canónico está en [`map.schema.json`](./map.schema.json). Campos:
 
 - `id`, `domain`, `task` — identidad y propósito.
 - `ragScope.include` / `exclude` — namespaces del RAG que se consultan o se vetan.
-- `reasoning.depth` / `agenticLoop` / `missingDataPolicy` — profundidad, si se
-  permite iterar, y qué hacer con datos ausentes.
+- `reasoning.depth` / `agenticLoop` / `missingDataPolicy`. **`depth` es un
+  hint de perfil de ejecución, no una garantía.** Los providers lo usan para
+  enrutar (tier de modelo, longitud, presencia de cadenas de pensamiento si
+  el provider las ofrece). Poner `high` no entrega "más razonamiento"; cambia
+  cómo se invoca al modelo. `agenticLoop` controla si se permite iterar.
+  `missingDataPolicy` define qué hacer con datos ausentes.
 - `output.format` / `requireSources` — formato esperado y exigencia de fuentes.
 - `tools.allow` / `block` — herramientas permitidas y vetadas.
 - `budget` — `maxInputTokens`, `maxOutputTokens`, `maxRetrievalChunks`, `modelTier`.
