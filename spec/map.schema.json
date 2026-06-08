@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://map-standard.dev/map.schema.json",
+  "title": "MAP — Model Active Parameters",
+  "type": "object",
+  "required": ["id", "task", "ragScope", "output", "budget"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "domain": { "type": "string", "default": "generic" },
+    "task": { "type": "string" },
+    "ragScope": {
+      "type": "object",
+      "required": ["include"],
+      "properties": {
+        "include": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+    "reasoning": {
+      "type": "object",
+      "properties": {
+        "depth": { "enum": ["low", "medium", "high"], "default": "medium" },
+        "agenticLoop": { "type": "boolean", "default": false },
+        "missingDataPolicy": {
+          "enum": ["mark_as_missing", "best_effort", "fail"],
+          "default": "mark_as_missing"
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["format"],
+      "properties": {
+        "format": { "type": "string" },
+        "requireSources": { "type": "boolean", "default": true }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "allow": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "block": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": ["maxInputTokens", "maxOutputTokens", "maxRetrievalChunks", "modelTier"],
+      "properties": {
+        "maxInputTokens": { "type": "integer", "minimum": 1 },
+        "maxOutputTokens": { "type": "integer", "minimum": 1 },
+        "maxRetrievalChunks": { "type": "integer", "minimum": 1 },
+        "modelTier": { "enum": ["cheap", "medium", "strong"] }
+      }
+    }
+  }
+}
