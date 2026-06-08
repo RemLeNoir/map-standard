@@ -20,7 +20,11 @@
     "reasoning": {
       "type": "object",
       "properties": {
-        "depth": { "enum": ["low", "medium", "high"], "default": "medium" },
+        "depth": {
+          "enum": ["low", "medium", "high"],
+          "default": "medium",
+          "description": "Hint de perfil de ejecución, no garantía. Los providers lo usan para enrutar (tier, longitud, cadenas de pensamiento si las hay). Poner 'high' no garantiza más razonamiento."
+        },
         "agenticLoop": { "type": "boolean", "default": false },
         "missingDataPolicy": {
           "enum": ["mark_as_missing", "best_effort", "fail"],

@@ -45,13 +45,13 @@ async function main() {
   // qa_documental: scope = ["docs"] por defecto. Cambia a ["docs.manuales", "docs.faq"]
   // para mostrar cómo el scope acota la retrieval.
   const qa = await runWithMap("qa_documental", "¿qué plazo aplica?");
-  console.log("\n— qa_documental —");
+  console.log("\n[qa_documental]");
   console.log(qa.text);
   console.log(`chunks=${qa.chunksUsed} tier=${qa.model}`);
 
   // clasificar: NO permite scoped_search, así que no recupera nada (chunks=0).
   const cls = await runWithMap("clasificar", "consulta sobre plazos");
-  console.log("\n— clasificar (sin retrieval) —");
+  console.log("\n[clasificar] (sin retrieval)");
   console.log(cls.text);
   console.log(`chunks=${cls.chunksUsed} tier=${cls.model}`);
 }

@@ -6,6 +6,18 @@ Capa declarativa que define, para cada tarea, **qué contexto activa un modelo, 
 
 ---
 
+## Tres capas (no las mezcles)
+
+| Capa | Qué es | Vive en |
+|---|---|---|
+| **1. La spec MAP** | El contrato: el objeto `map`, el schema JSON, el principio de "puerta única". Independiente de lenguaje, de proveedor y de stack. | [`spec/`](./spec/) |
+| **2. La librería TypeScript** | Implementación de referencia de la spec: `runWithMap`, gates de scope/tools/budget, resolver, logger, librería de maps por defecto. | [`src/core/`](./src/core/) |
+| **3. Los adapters** | Fontanería para que arranques rápido: Anthropic y OpenAI vía fetch, embedder local y openai, retrievers en memoria y pgvector. | [`src/core/providers/`](./src/core/providers/), [`src/core/embeddings/`](./src/core/embeddings/), [`src/core/retrievers/`](./src/core/retrievers/) |
+
+**MAP no es pgvector. No es OpenAI. No es Anthropic. No es MCP.** MAP es el contrato de ejecución. Los adapters son intercambiables; el contrato no.
+
+---
+
 ## Qué te da
 
 Tres cosas, en este orden:
@@ -18,19 +30,20 @@ El ahorro de tokens, si aparece, es consecuencia de tener scope y budget capados
 
 ---
 
-## Qué es MAP y qué es de tu proyecto
+## Cómo se ubica frente a las alternativas
 
-**MAP es la disciplina, no el stack.** Lo que define el estándar:
+Tabla para ubicar, no para vender. Cada herramienta resuelve un problema distinto; no compiten directamente.
 
-- el contrato (`map.schema.json` + `defineMap`),
-- la gateway (`runWithMap`, la única puerta),
-- las gates (scope, tools, budget),
-- el resolver, el log y los **maps por defecto**,
-- y las **interfaces** `Retriever`, `Embedder`, `ModelProvider`.
+| Problema | Prompt largo "todo en uno" | Pipeline multiagente | RAG normal | MAP |
+|---|---|---|---|---|
+| Acotar qué contexto entra al modelo | Lo metes a mano en el prompt | Lo decide cada agente | Recupera todo lo similar | Scope por namespaces, aplicado por código |
+| Limitar herramientas por tarea | Se lo pides al modelo | El orquestador decide | No aplica | Allow-list dura por map |
+| Cap de tokens y tier por tarea | Hard-coded en el código que llama | Variable por agente | No aplica | Campo del map, capado al recorte de contexto |
+| Trazabilidad de la decisión | La que tú instrumentes | La que tú instrumentes | Logs del retriever | `MapRuntimeLog` estructurado por ejecución |
+| Coste de cambiar de proveedor | Reescritura | Reescritura | Independiente | Cambio de adapter |
+| Cuándo encaja | Una tarea ocasional | Autonomía real, acciones encadenadas | Sustrato para Q&A o búsqueda | Muchas tareas distintas contra un mismo corpus |
 
-El **retriever, el embedder, el proveedor y la base de datos son de tu proyecto**, no de MAP. MAP solo necesita una implementación de esas interfaces que respete el scope; lo que haya detrás (memoria, pgvector, Pinecone, Anthropic, OpenAI…) le da igual.
-
-Los adapters incluidos (`providers/`, `embeddings/`, `retrievers/`) son **fontanería de referencia** para que arranques y veas cómo se enchufa lo tuyo. No son el estándar: puedes sustituirlos o borrarlos.
+MAP no sustituye a RAG (lo orienta) ni a un agente cuando hay autonomía real. Sustituye al uso de agentes en tareas que solo necesitaban contexto bien dirigido.
 
 ---
 
@@ -52,6 +65,16 @@ Apuntar un map a tus datos son dos campos:
 ragScope: { include: ["docs.manuales", "docs.faq"], exclude: [] },
 budget:   { modelTier: "cheap", maxRetrievalChunks: 6, maxOutputTokens: 800 },
 ```
+
+### Sobre `reasoning.depth`
+
+`depth` (`low | medium | high`) es un **hint de perfil de ejecución**, no una garantía de razonamiento. Los providers lo usan para enrutar (tier de modelo, longitud de salida, presencia de cadenas de pensamiento si el provider las ofrece). Poner `high` no entrega "más profundidad"; cambia cómo se invoca al modelo. Léelo como `executionProfile`.
+
+### Estático vs dinámico
+
+Los maps de la librería son **estáticos**: una plantilla por tarea, versionada. Es el modo recomendado y el único cuyo ahorro es defendible.
+
+Generar maps **dinámicamente con otra llamada al modelo** es posible pero peligroso: si necesitas un LLM para decidir el map, te comes el ahorro y diluyes el control. Úsalo solo cuando el estático genuinamente no llegue, y cuando lo hagas, versiona los maps producidos y trátalos como caché.
 
 ---
 
@@ -79,16 +102,7 @@ No hay modo demo ni mock de producto: o conectas un proveedor real, o inyectas e
 
 - [`examples/quickstart/`](./examples/quickstart/): corpus de juguete y proveedor "echo" inyectado. Ejecútalo sin instalar nada más. Muestra cómo `qa_documental` recupera con scope y cómo `clasificar` no recupera nada porque no tiene `scoped_search` en `tools.allow`.
 - [`examples/benchmark/`](./examples/benchmark/): pipeline multiagente naíf (planner, researcher, answerer, sin scope ni budget) frente a una sola pasada por `runWithMap`. Imprime llamadas, tokens y latencia. Requiere proveedor real.
-
----
-
-## Adapters de referencia (de tu proyecto, no del estándar)
-
-Implementaciones de las interfaces para que arranques. Sustituibles por las tuyas:
-
-- **Proveedores** (`src/core/providers/`): `anthropic` y `openai`, vía fetch, sin SDK. Verifica los nombres de modelo por tier en tu cuenta.
-- **Embedders** (`src/core/embeddings/`): `local` (léxico, sin red, para corpus pequeños y tests) y `openai`. `MAP_EMBEDDER=local|openai`.
-- **Retrievers** (`src/core/retrievers/`): `MemoryRetriever` (vector store en memoria, coseno real) y `PrismaRetriever` (Postgres + pgvector, cliente inyectado). `setRetriever()` para cambiar.
+- [`examples/maps/`](./examples/maps/): **recetas verticales demostrativas**. `legal_contract_review`, `support_ticket_classifier`, `invoice_data_extraction`, `tender_requirement_analysis`, `crm_email_summarizer`. **No forman parte de la librería estándar**: son ejemplos de cómo adaptar un arquetipo a un dominio concreto. Ver [`examples/maps/README.md`](./examples/maps/README.md).
 
 ---
 
@@ -96,29 +110,32 @@ Implementaciones de las interfaces para que arranques. Sustituibles por las tuya
 
 El schema es commodity. El valor está en la **librería de maps por defecto**: arquetipos de tarea, no de dominio (`qa_documental`, `extraccion_estructura`, `clasificar`, `resumir_con_fuentes`). Es el modelo de ESLint: nadie lo usa por poder escribir reglas, lo usa por `eslint:recommended`.
 
+Por eso los verticales (legal, soporte, facturas, licitaciones, CRM) viven en `examples/maps/` como recetas, no en `src/core/maps/` como estándar. El dominio lo pone el usuario en `ragScope.include`; no se hornean veinte verticales en la librería.
+
 ---
 
 ## Estructura
 
 ```
-spec/                      el estándar: SPEC.md, map.schema.json, CONFORMANCE.md
+spec/                       el estándar: SPEC.md, map.schema.json, CONFORMANCE.md
 src/core/
-  gateway.ts               única puerta al modelo (runWithMap)
-  gates/                   scope, tools, budget (enforzados por código)
-  maps/                    librería de maps por defecto  <- el producto
-  providers/               anthropic, openai (vía fetch)
-  embeddings/              local, openai
-  retrievers/              memory (coseno), prisma (pgvector)
-  logger.ts                MapRuntimeLog
-src/mcp/                   server MCP (resolve_map, scoped_search)
-tests/                     suite con node:test (12 tests)
-examples/quickstart/       demo sin clave con proveedor inyectado
-examples/benchmark/        multiagente naíf vs runWithMap (proveedor real)
-prisma/schema.prisma       Chunk (pgvector) + MapRuntimeLog
-eslint.config.js           regla anti-import directo del proveedor
-scripts/                   test.mjs (runner cross-platform) y apply-ruleset.mjs
-.github/rulesets/main.json ruleset de protección de la rama por defecto
-AGENTS.md, CLAUDE.md       instrucciones para agentes de código
+  gateway.ts                única puerta al modelo (runWithMap)
+  gates/                    scope, tools, budget (enforzados por código)
+  maps/                     librería estándar (arquetipos de tarea)  <- el producto
+  providers/                anthropic, openai (vía fetch)
+  embeddings/                local, openai
+  retrievers/                memory (coseno), prisma (pgvector)
+  logger.ts                 MapRuntimeLog
+src/mcp/                    server MCP (resolve_map, scoped_search)
+tests/                      suite con node:test (12 tests)
+examples/quickstart/        demo sin clave con proveedor inyectado
+examples/benchmark/         multiagente naíf vs runWithMap (proveedor real)
+examples/maps/              recetas verticales demostrativas (no librería)
+prisma/schema.prisma        Chunk (pgvector) + MapRuntimeLog
+eslint.config.js            regla anti-import directo del proveedor
+scripts/                    test.mjs (runner cross-platform) y apply-ruleset.mjs
+.github/rulesets/main.json  ruleset de protección de la rama por defecto
+AGENTS.md, CLAUDE.md        instrucciones para agentes de código
 ```
 
 ---
@@ -134,13 +151,14 @@ AGENTS.md, CLAUDE.md       instrucciones para agentes de código
 - **No arregla un RAG malo.** Acota *qué* namespaces; no mejora el ranking dentro de ellos más allá del embedder que uses.
 - **No te ahorra etiquetar.** El scope necesita chunks con `namespace`. No hay atajo.
 - **No sustituye a un agente** cuando hay autonomía real: monitorización, acciones encadenadas, estado persistente.
+- **No garantiza profundidad de razonamiento por poner `depth: "high"`.** Es un hint de enrutado, no una promesa.
 - **No es magia.** Contra quien ya escribe prompts acotados a mano, el ahorro de tokens es marginal. Lo que ganas es control y trazabilidad sistemáticos.
 
 ---
 
 ## Gobernanza del repo
 
-La rama por defecto se protege con un Repository Ruleset versionado en [`.github/rulesets/main.json`](./.github/rulesets/main.json): PR con revisión, historia lineal, sin force-push, y checks `typecheck`, `lint`, `test` obligatorios. Para aplicarlo o actualizarlo en GitHub, con el [`gh` CLI](https://cli.github.com/) autenticado:
+La rama por defecto se protege con un Repository Ruleset versionado en [`.github/rulesets/main.json`](./.github/rulesets/main.json): PR con revisión, historia lineal, sin force-push, y checks `typecheck`, `lint`, `test` obligatorios. El rol Admin puede overridear cuando haga falta. Para aplicarlo o actualizarlo en GitHub, con el [`gh` CLI](https://cli.github.com/) autenticado:
 
 ```bash
 npm run protect                          # detecta OWNER/REPO del remote 'origin'
